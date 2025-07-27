@@ -13,7 +13,7 @@ st.set_page_config(page_title="Vehicle Sales Analysis", page_icon="🚗", layout
 st.title("🚗 Vehicle Sales Analysis Tool")
 st.markdown("Upload your Excel files to generate comprehensive sales analysis reports")
 
-# Your original functions (keeping them exactly the same)
+# Logic of the tool
 def drop_columns(data):
     drop_columns_list = ['Address','City','Locality','PinCode','Customer PhoneNo','Mobile No','Color Code','Color','Source',
                          'Manuf. Discount(-)','GatePass No.','GatePass Date','Registration Amount-RDTAX(+)',
