@@ -323,17 +323,17 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("📊 Main Data File")
     main_file = st.file_uploader(
-        "Upload Book1.xlsx", 
+        "Upload vehicle_sales_data excel file", 
         type=['xlsx'], 
-        help="Upload the main sales data Excel file (Book1.xlsx)"
+        help="Upload the main sales data Excel file (sales.xlsx)"
     )
 
 with col2:
     st.subheader("💰 Margin Data File")
     sales_reco_file = st.file_uploader(
-        "Upload MARGIN JULY 25.xlsx", 
+        "Upload Chassis No. excel file", 
         type=['xlsx'], 
-        help="Upload the margin data Excel file (MARGIN JULY 25.xlsx)"
+        help="Upload the margin data Excel file (Chassis.xlsx)"
     )
 
 # Sheet selection section
