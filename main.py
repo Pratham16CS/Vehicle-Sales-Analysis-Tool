@@ -1,10 +1,16 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from openpyxl import load_workbook
 import os
 import tempfile
 import io
+
+try:
+    from openpyxl import load_workbook
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    st.error("openpyxl is not available. Please check your requirements.txt file.")
+    OPENPYXL_AVAILABLE = False
 
 # Set page config
 st.set_page_config(page_title="Vehicle Sales Analysis", page_icon="🚗", layout="wide")
@@ -13,7 +19,7 @@ st.set_page_config(page_title="Vehicle Sales Analysis", page_icon="🚗", layout
 st.title("🚗 Vehicle Sales Analysis Tool")
 st.markdown("Upload your Excel files to generate comprehensive sales analysis reports")
 
-# Logic of the tool 
+# Your original functions (keeping them exactly the same)
 def drop_columns(data):
     drop_columns_list = ['Address','City','Locality','PinCode','Customer PhoneNo','Mobile No','Color Code','Color','Source',
                          'Manuf. Discount(-)','GatePass No.','GatePass Date','Registration Amount-RDTAX(+)',
@@ -92,8 +98,7 @@ def total_row(data):
             total_row[col] = len(data)
         elif col.lower() == 'location':
             total_row[col] = f'Total ({len(data)})'
-    total_row_df = pd.DataFrame([total_row], columns=list(total_row.keys()))
-    data = pd.concat([data, total_row_df], ignore_index=True)
+    data.loc[len(data)] = total_row
     data = data.rename(columns={'Total Discount': 'Tata DMS Credit'})
     return data
 
