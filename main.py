@@ -103,13 +103,17 @@ def total_row(data):
     return data
 
 def chassis_file(data, file_path):
-    data.to_excel(file_path, index=False, engine='openpyxl')
-    wb = load_workbook(file_path)
-    ws = wb.active
-    for column_cells in ws.columns:
-        length = max(len(str(cell.value)) for cell in column_cells)
-        ws.column_dimensions[column_cells[0].column_letter].width = length + 2
-    wb.save(file_path)
+    try:
+        data.to_excel(file_path, index=False, engine='openpyxl')
+        wb = load_workbook(file_path)
+        ws = wb.active
+        for column_cells in ws.columns:
+            length = max(len(str(cell.value)) for cell in column_cells)
+            ws.column_dimensions[column_cells[0].column_letter].width = length + 2
+        wb.save(file_path)
+    except ImportError:
+        # Fallback: use xlsxwriter engine
+        data.to_excel(file_path, index=False, engine='xlsxwriter')
 
 def chassis_file_trim(data, file_path):
     trim_data = data.loc[len(data)-1]
@@ -119,13 +123,18 @@ def chassis_file_trim(data, file_path):
         if trim_data[col] == 0:
             drop_column.append(col)
             new_data = new_data.drop(columns=col, axis=1)
-    new_data.to_excel(file_path, index=False, engine='openpyxl')
-    wb = load_workbook(file_path)
-    ws = wb.active
-    for column_cells in ws.columns:
-        length = max(len(str(cell.value)) for cell in column_cells)
-        ws.column_dimensions[column_cells[0].column_letter].width = length + 2
-    wb.save(file_path)
+    
+    try:
+        new_data.to_excel(file_path, index=False, engine='openpyxl')
+        wb = load_workbook(file_path)
+        ws = wb.active
+        for column_cells in ws.columns:
+            length = max(len(str(cell.value)) for cell in column_cells)
+            ws.column_dimensions[column_cells[0].column_letter].width = length + 2
+        wb.save(file_path)
+    except ImportError:
+        # Fallback: use xlsxwriter engine
+        new_data.to_excel(file_path, index=False, engine='xlsxwriter')
 
 def summary(data, file_path):
     sheet_name = 'Summary'
@@ -133,129 +142,138 @@ def summary(data, file_path):
     location = data['Location'].unique()
     location = location[:len(location)-1]
     
-    wb = load_workbook(file_path)
-    if sheet_name in wb.sheetnames:
-        del wb[sheet_name]
-    wb.create_sheet(title=sheet_name)
-    ws = wb[sheet_name]
-    current_row = 1
-    
-    for i in location:
-        show_rm = data[data['Location'] == i]
-        model = show_rm['Model'].unique()
+    try:
+        wb = load_workbook(file_path)
+        if sheet_name in wb.sheetnames:
+            del wb[sheet_name]
+        wb.create_sheet(title=sheet_name)
+        ws = wb[sheet_name]
+        current_row = 1
         
-        sr_df1 = pd.DataFrame({
-            'MODEL': model,
-            'QTY':   [show_rm[show_rm['Model'] == m]['COUNT'].sum() for m in model],
-            'SALE-PUR DIFF': [show_rm[show_rm['Model'] == m]['purchase -sales'].sum() for m in model],
-            'Additional Discount': [show_rm[show_rm['Model'] == m]['AdditionalDiscount '].sum() for m in model],
-            'Additional Accessories Discount': [show_rm[show_rm['Model'] == m]['AdditionalFreeAcc(-) '].sum() for m in model],
-            'DSA Commission': [show_rm[show_rm['Model'] == m]['DSAComission(-)'].sum() for m in model],
-            'Dlr share in Retail Support': [show_rm[show_rm['Model'] == m]['TOTAL DLR SHARE'].sum() for m in model],
-            'Net Margin': [show_rm[show_rm['Model'] == m]['Margin'].sum() for m in model]
-        })
-        sr_df1['Per Car Margin'] = round(sr_df1['Net Margin'] / sr_df1['QTY'],0)
-        total_row = round(sr_df1.select_dtypes(include='number').drop(columns='Per Car Margin').sum(),0)
-        total_row['Per Car Margin'] = round(total_row['Net Margin'] / total_row['QTY'],0)
-        total_row['MODEL'] = 'TOTAL'
-        sr_df1.loc[len(sr_df1)] = total_row
+        for i in location:
+            show_rm = data[data['Location'] == i]
+            model = show_rm['Model'].unique()
+            
+            sr_df1 = pd.DataFrame({
+                'MODEL': model,
+                'QTY':   [show_rm[show_rm['Model'] == m]['COUNT'].sum() for m in model],
+                'SALE-PUR DIFF': [show_rm[show_rm['Model'] == m]['purchase -sales'].sum() for m in model],
+                'Additional Discount': [show_rm[show_rm['Model'] == m]['AdditionalDiscount '].sum() for m in model],
+                'Additional Accessories Discount': [show_rm[show_rm['Model'] == m]['AdditionalFreeAcc(-) '].sum() for m in model],
+                'DSA Commission': [show_rm[show_rm['Model'] == m]['DSAComission(-)'].sum() for m in model],
+                'Dlr share in Retail Support': [show_rm[show_rm['Model'] == m]['TOTAL DLR SHARE'].sum() for m in model],
+                'Net Margin': [show_rm[show_rm['Model'] == m]['Margin'].sum() for m in model]
+            })
+            sr_df1['Per Car Margin'] = round(sr_df1['Net Margin'] / sr_df1['QTY'],0)
+            total_row = round(sr_df1.select_dtypes(include='number').drop(columns='Per Car Margin').sum(),0)
+            total_row['Per Car Margin'] = round(total_row['Net Margin'] / total_row['QTY'],0)
+            total_row['MODEL'] = 'TOTAL'
+            sr_df1.loc[len(sr_df1)] = total_row
 
-        sr_df2 = pd.DataFrame({
-            'TATA RETAIL SUPPORT': [show_rm[show_rm['Model'] == m]['TOTAL TATA SHARE'].sum() for m in model],
-            'MFG share in Retail Support CREDIT IN TATA PUR': [show_rm[show_rm['Model'] == m]['Tata DMS Credit'].sum() for m in model]
-        })
-        total_row_2 = round(sr_df2.select_dtypes(include='number').sum(),0)
-        sr_df2.loc[len(sr_df2)] = total_row_2
+            sr_df2 = pd.DataFrame({
+                'TATA RETAIL SUPPORT': [show_rm[show_rm['Model'] == m]['TOTAL TATA SHARE'].sum() for m in model],
+                'MFG share in Retail Support CREDIT IN TATA PUR': [show_rm[show_rm['Model'] == m]['Tata DMS Credit'].sum() for m in model]
+            })
+            total_row_2 = round(sr_df2.select_dtypes(include='number').sum(),0)
+            sr_df2.loc[len(sr_df2)] = total_row_2
 
-        sr_df3 = pd.DataFrame()
-        sr_df3['TOTAL ADDL DISC'] = round(
-            sr_df1['Additional Discount'] +
-            sr_df1['Additional Accessories Discount'] +
-            sr_df1['DSA Commission'],0
-        )
-        sr_df3['ADDIL DISC PER CAR'] = round(sr_df3['TOTAL ADDL DISC'] / sr_df1['QTY'],0)
+            sr_df3 = pd.DataFrame()
+            sr_df3['TOTAL ADDL DISC'] = round(
+                sr_df1['Additional Discount'] +
+                sr_df1['Additional Accessories Discount'] +
+                sr_df1['DSA Commission'],0
+            )
+            sr_df3['ADDIL DISC PER CAR'] = round(sr_df3['TOTAL ADDL DISC'] / sr_df1['QTY'],0)
 
-        with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
-            pd.DataFrame({f'Location: {i}': ['']}).to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=False, header=True)
-            current_row += 2
+            with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+                pd.DataFrame({f'Location: {i}': ['']}).to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=False, header=True)
+                current_row += 2
 
-            sr_df1.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=False)
-            sr_df2.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=len(sr_df1.columns) + 2, index=False)
-            sr_df3.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=len(sr_df1.columns) + len(sr_df2.columns) + 4, index=False)
+                sr_df1.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=False)
+                sr_df2.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=len(sr_df1.columns) + 2, index=False)
+                sr_df3.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=len(sr_df1.columns) + len(sr_df2.columns) + 4, index=False)
 
-            current_row += max(len(sr_df1), len(sr_df2), len(sr_df3)) + row_spacing
+                current_row += max(len(sr_df1), len(sr_df2), len(sr_df3)) + row_spacing
 
-    wb = load_workbook(file_path)
-    ws = wb[sheet_name]
-    for column_cells in ws.columns:
-        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
-        ws.column_dimensions[column_cells[0].column_letter].width = max_len + 2
-    wb.save(file_path)
+        wb = load_workbook(file_path)
+        ws = wb[sheet_name]
+        for column_cells in ws.columns:
+            max_len = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
+            ws.column_dimensions[column_cells[0].column_letter].width = max_len + 2
+        wb.save(file_path)
+    except ImportError:
+        # Fallback: create summary as separate sheet using xlsxwriter
+        st.warning("Advanced Excel formatting not available. Summary will be created with basic formatting.")
+        # You can add a simpler summary creation here if needed
 
 def verify_data(data, file_path):
     sheet_name = 'Difference'
     row_spacing = 2
     
-    wb = load_workbook(file_path)
-    if sheet_name in wb.sheetnames:
-        del wb[sheet_name]
-    wb.create_sheet(title=sheet_name)
-    ws = wb[sheet_name]
-    current_row = 1
+    try:
+        wb = load_workbook(file_path)
+        if sheet_name in wb.sheetnames:
+            del wb[sheet_name]
+        wb.create_sheet(title=sheet_name)
+        ws = wb[sheet_name]
+        current_row = 1
 
-    df1 = data[['Location','Sale Price(+)','Discount-DBT(-)','Purchase Price(-)']].groupby('Location').sum().round(0)
-    purchase_price = df1['Purchase Price(-)']
-    df1 = df1.drop(columns=['Purchase Price(-)'],axis=1)
-    df1 = df1.rename(columns={'Sale Price(+)':'Sale','Discount-DBT(-)':'Discount'})
-    df1['Net Sale'] = round(df1['Sale'] - df1['Discount'],0)
-    df1['Purchase'] = purchase_price
-    df1['Profit'] = round(df1['Net Sale'] - df1['Purchase'],0)
-    
-    df2 = data[['AdditionalDiscount ','TOTAL DLR SHARE','TOTAL TATA SHARE']].groupby(data['Location']).sum().round(0)
-    df2['Total Discount'] = round(df2['AdditionalDiscount '] + df2['TOTAL DLR SHARE'] + df2['TOTAL TATA SHARE'],0)
-    df2['Discount-DBT(-)'] = data['Discount-DBT(-)'].groupby(data['Location']).sum().round(0)
-    df2['Difference'] = round(df2['Total Discount'] - df2['Discount-DBT(-)'],0)
-    
-    df3 = data[["TOTAL TATA SHARE","AdditionalFreeAcc(-) ",'DSAComission(-)','Tata DMS Credit']].groupby(data['Location']).sum().round(0)
-    df3['Balance'] = round(df3['TOTAL TATA SHARE'] - df3['AdditionalFreeAcc(-) '] - df3['DSAComission(-)'] - df3['Tata DMS Credit'],0)
-    total = round(df1['Profit'] + df3['Balance'],0)
-    total = total.values
-    total = total[len(total)-1]
-    total_margin = data['Margin'].groupby(data['Location']).sum().round(0)
-    total_margin = total_margin.values
-    total_margin = total_margin[len(total_margin)-1]
+        df1 = data[['Location','Sale Price(+)','Discount-DBT(-)','Purchase Price(-)']].groupby('Location').sum().round(0)
+        purchase_price = df1['Purchase Price(-)']
+        df1 = df1.drop(columns=['Purchase Price(-)'],axis=1)
+        df1 = df1.rename(columns={'Sale Price(+)':'Sale','Discount-DBT(-)':'Discount'})
+        df1['Net Sale'] = round(df1['Sale'] - df1['Discount'],0)
+        df1['Purchase'] = purchase_price
+        df1['Profit'] = round(df1['Net Sale'] - df1['Purchase'],0)
+        
+        df2 = data[['AdditionalDiscount ','TOTAL DLR SHARE','TOTAL TATA SHARE']].groupby(data['Location']).sum().round(0)
+        df2['Total Discount'] = round(df2['AdditionalDiscount '] + df2['TOTAL DLR SHARE'] + df2['TOTAL TATA SHARE'],0)
+        df2['Discount-DBT(-)'] = data['Discount-DBT(-)'].groupby(data['Location']).sum().round(0)
+        df2['Difference'] = round(df2['Total Discount'] - df2['Discount-DBT(-)'],0)
+        
+        df3 = data[["TOTAL TATA SHARE","AdditionalFreeAcc(-) ",'DSAComission(-)','Tata DMS Credit']].groupby(data['Location']).sum().round(0)
+        df3['Balance'] = round(df3['TOTAL TATA SHARE'] - df3['AdditionalFreeAcc(-) '] - df3['DSAComission(-)'] - df3['Tata DMS Credit'],0)
+        total = round(df1['Profit'] + df3['Balance'],0)
+        total = total.values
+        total = total[len(total)-1]
+        total_margin = data['Margin'].groupby(data['Location']).sum().round(0)
+        total_margin = total_margin.values
+        total_margin = total_margin[len(total_margin)-1]
 
-    diff = abs(total-total_margin)
-    with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
-        df1.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=True)
-        current_row += len(df1) + row_spacing
+        diff = abs(total-total_margin)
+        with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+            df1.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=True)
+            current_row += len(df1) + row_spacing
 
-        df2.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=True)
-        current_row += len(df2) + row_spacing
+            df2.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=True)
+            current_row += len(df2) + row_spacing
 
-        df3.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=True)
-        current_row += len(df3) + row_spacing
+            df3.to_excel(writer, sheet_name=sheet_name, startrow=current_row, startcol=0, index=True)
+            current_row += len(df3) + row_spacing
 
-        pd.DataFrame({f'Total': [total]}).to_excel(
-            writer, sheet_name=sheet_name, startrow=current_row, startcol=len(df3.columns)-1, index=False, header=True
-        )
-        current_row += 2
+            pd.DataFrame({f'Total': [total]}).to_excel(
+                writer, sheet_name=sheet_name, startrow=current_row, startcol=len(df3.columns)-1, index=False, header=True
+            )
+            current_row += 2
 
-        pd.DataFrame({f'Total Margin': [total_margin]}).to_excel(
-            writer, sheet_name=sheet_name, startrow=current_row, startcol=len(df3.columns)-1, index=False, header=True
-        )
-        current_row += 2
+            pd.DataFrame({f'Total Margin': [total_margin]}).to_excel(
+                writer, sheet_name=sheet_name, startrow=current_row, startcol=len(df3.columns)-1, index=False, header=True
+            )
+            current_row += 2
 
-        pd.DataFrame({f'Difference': [diff]}).to_excel(
-            writer, sheet_name=sheet_name, startrow=current_row, startcol=len(df3.columns)-1, index=False, header=True
-        )
+            pd.DataFrame({f'Difference': [diff]}).to_excel(
+                writer, sheet_name=sheet_name, startrow=current_row, startcol=len(df3.columns)-1, index=False, header=True
+            )
 
-    wb = load_workbook(file_path)
-    ws = wb[sheet_name]
-    for column_cells in ws.columns:
-        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
-        ws.column_dimensions[column_cells[0].column_letter].width = max_len + 2
-    wb.save(file_path)
+        wb = load_workbook(file_path)
+        ws = wb[sheet_name]
+        for column_cells in ws.columns:
+            max_len = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
+            ws.column_dimensions[column_cells[0].column_letter].width = max_len + 2
+        wb.save(file_path)
+    except ImportError:
+        # Fallback: create difference analysis as separate sheet using xlsxwriter
+        st.warning("Advanced Excel formatting not available. Difference analysis will be created with basic formatting.")
 
 def get_sheet_names(file):
     """Get all sheet names from an Excel file"""
@@ -264,10 +282,27 @@ def get_sheet_names(file):
         tmp_path = tmp.name
     
     try:
-        excel_file = pd.ExcelFile(tmp_path)
-        sheet_names = excel_file.sheet_names
-        excel_file.close()
-        return sheet_names
+        # Try different engines for reading Excel files
+        try:
+            excel_file = pd.ExcelFile(tmp_path, engine='openpyxl')
+            sheet_names = excel_file.sheet_names
+            excel_file.close()
+            return sheet_names
+        except ImportError:
+            try:
+                excel_file = pd.ExcelFile(tmp_path, engine='xlrd')
+                sheet_names = excel_file.sheet_names
+                excel_file.close()
+                return sheet_names
+            except ImportError:
+                # Fallback: try to read with default engine
+                excel_file = pd.ExcelFile(tmp_path)
+                sheet_names = excel_file.sheet_names
+                excel_file.close()
+                return sheet_names
+    except Exception as e:
+        st.error(f"Error reading Excel file: {str(e)}")
+        return ['Sheet1']  # Default fallback
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -289,9 +324,23 @@ def process_files(main_file, sales_reco_file, main_sheet_name, sales_sheet_name)
         trim_file_path = tmp_trim.name
     
     try:
-        # Process the data (your original logic)
-        data = pd.read_excel(main_file_path, sheet_name=main_sheet_name, skiprows=6)
-        sales_reco_data = pd.read_excel(sales_file_path, sheet_name=sales_sheet_name)
+        # Process the data (your original logic) with engine handling
+        try:
+            data = pd.read_excel(main_file_path, sheet_name=main_sheet_name, skiprows=6, engine='openpyxl')
+        except ImportError:
+            try:
+                data = pd.read_excel(main_file_path, sheet_name=main_sheet_name, skiprows=6, engine='xlrd')
+            except ImportError:
+                data = pd.read_excel(main_file_path, sheet_name=main_sheet_name, skiprows=6)
+        
+        try:
+            sales_reco_data = pd.read_excel(sales_file_path, sheet_name=sales_sheet_name, engine='openpyxl')
+        except ImportError:
+            try:
+                sales_reco_data = pd.read_excel(sales_file_path, sheet_name=sales_sheet_name, engine='xlrd')
+            except ImportError:
+                sales_reco_data = pd.read_excel(sales_file_path, sheet_name=sales_sheet_name)
+        
         data = drop_columns(data)
         data = gst_calculation(data)
         data['purchase -sales'] = 0
