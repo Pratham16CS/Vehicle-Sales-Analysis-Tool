@@ -80,6 +80,7 @@ def fetching_discount_chassisno(data, sales_reco_data):
 
     # Mapping the discount
     data_filtered['Total Discount'] = data_filtered['ChassisNo'].map(chassis_to_discount)
+    data_filtered['Total Discount'] = data_filtered['Total Discount'] * data_filtered['COUNT']
 
     return data_filtered
     
