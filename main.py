@@ -62,15 +62,27 @@ def tata_share_calculation(data):
     return data
 
 def fetching_discount_chassisno(data, sales_reco_data):
-    dedup_sales = sales_reco_data.drop_duplicates(subset="Chassis_No")
-    merged = pd.merge(data, 
-                      dedup_sales[["Chassis_No", "Total Discount"]], 
-                      left_on="ChassisNo", 
-                      right_on="Chassis_No", 
-                      how="inner")
-    merged = merged.drop(columns=["Chassis_No"], axis=1)
-    return merged
+    # Cleaning sales_reco_data to remove blanks and duplicates
+    clean_sales = sales_reco_data[['Chassis_No', 'Total Discount']].copy()
+    clean_sales = clean_sales.dropna(subset=['Chassis_No'])  # Remove rows with missing Chassis_No
 
+    # Sorting so non-null discounts come first, then drop duplicates
+    clean_sales = (
+        clean_sales.sort_values(by='Total Discount', na_position='last')
+        .drop_duplicates(subset='Chassis_No', keep='first')
+    )
+
+    # Creating a lookup dictionary
+    chassis_to_discount = dict(zip(clean_sales['Chassis_No'], clean_sales['Total Discount']))
+
+    # Filtering `data` to include only rows with matching ChassisNo
+    data_filtered = data[data['ChassisNo'].isin(chassis_to_discount.keys())].copy()
+
+    # Mapping the discount
+    data_filtered['Total Discount'] = data_filtered['ChassisNo'].map(chassis_to_discount)
+
+    return data_filtered
+    
 def purchase_sales(data):
     data['purchase -sales'] = round(data['Sale Price(+)'] - data['Purchase Price(-)'] - data['Total Discount'])
     return data
