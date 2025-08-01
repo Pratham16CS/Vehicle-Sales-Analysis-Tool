@@ -200,6 +200,17 @@ def summary(data, file_path):
         ws.column_dimensions[column_cells[0].column_letter].width = max_len + 2
     wb.save(file_path)
 
+def move_dynamic_total_to_bottom(df, data, group_col="Location"):
+    # Get the last unique value of the group column from the original data
+    total_row_label = data[group_col].dropna().unique()[-1]
+    
+    if total_row_label in df.index:
+        total_row = df.loc[[total_row_label]]
+        df = df.drop(index=total_row_label)
+        df = pd.concat([df, total_row])
+    return df
+
+
 def verify_data(data, file_path):
     sheet_name = 'Difference'
     row_spacing = 2
@@ -212,6 +223,7 @@ def verify_data(data, file_path):
     current_row = 1
 
     df1 = data[['Location','Sale Price(+)','Discount-DBT(-)','Purchase Price(-)']].groupby('Location').sum().round(0)
+    df1 = move_dynamic_total_to_bottom(df1, data)
     purchase_price = df1['Purchase Price(-)']
     df1 = df1.drop(columns=['Purchase Price(-)'],axis=1)
     df1 = df1.rename(columns={'Sale Price(+)':'Sale','Discount-DBT(-)':'Discount'})
@@ -220,16 +232,19 @@ def verify_data(data, file_path):
     df1['Profit'] = round(df1['Net Sale'] - df1['Purchase'],0)
     
     df2 = data[['AdditionalDiscount ','TOTAL DLR SHARE','TOTAL TATA SHARE']].groupby(data['Location']).sum().round(0)
+    df2 = move_dynamic_total_to_bottom(df2, data)
     df2['Total Discount'] = round(df2['AdditionalDiscount '] + df2['TOTAL DLR SHARE'] + df2['TOTAL TATA SHARE'],0)
     df2['Discount-DBT(-)'] = data['Discount-DBT(-)'].groupby(data['Location']).sum().round(0)
     df2['Difference'] = round(df2['Total Discount'] - df2['Discount-DBT(-)'],0)
     
     df3 = data[["TOTAL TATA SHARE","AdditionalFreeAcc(-) ",'DSAComission(-)','Tata DMS Credit']].groupby(data['Location']).sum().round(0)
     df3['Balance'] = round(df3['TOTAL TATA SHARE'] - df3['AdditionalFreeAcc(-) '] - df3['DSAComission(-)'] - df3['Tata DMS Credit'],0)
+    df3 = move_dynamic_total_to_bottom(df3, data)
     total = round(df1['Profit'] + df3['Balance'],0)
     total = total.values
     total = total[len(total)-1]
     total_margin = data['Margin'].groupby(data['Location']).sum().round(0)
+    total_margin = move_dynamic_total_to_bottom(total_margin, data)
     total_margin = total_margin.values
     total_margin = total_margin[len(total_margin)-1]
 
@@ -264,7 +279,7 @@ def verify_data(data, file_path):
         max_len = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
         ws.column_dimensions[column_cells[0].column_letter].width = max_len + 2
     wb.save(file_path)
-
+    
 def get_sheet_names(file):
     """Get all sheet names from an Excel file"""
     with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
