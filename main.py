@@ -140,6 +140,7 @@ def summary(data, file_path):
     row_spacing = 2
     location = data['Location'].unique()
     location = location[:len(location)-1]
+    location = sorted(location)
     
     wb = load_workbook(file_path)
     if sheet_name in wb.sheetnames:
@@ -151,6 +152,7 @@ def summary(data, file_path):
     for i in location:
         show_rm = data[data['Location'] == i]
         model = show_rm['Model'].unique()
+        model = sorted(model)
         
         sr_df1 = pd.DataFrame({
             'MODEL': model,
